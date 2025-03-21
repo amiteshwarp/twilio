@@ -1,0 +1,23 @@
+services:
+  webhook:
+    image: twilio-webhook
+    build:
+      context: ./webhook
+      dockerfile: Dockerfile
+    ports:
+      - "5001:5000"
+      - "4040:4040"
+    env_file:
+      - .env
+    volumes:
+      - ./src:/var/www/html
+
+  phone:
+    image: twilio-phone
+    build:
+      context: ./phone
+      dockerfile: Dockerfile
+    ports:
+      - "7463:3000"
+    env_file:
+      - .env
