@@ -1,4 +1,5 @@
 **/log.txt
 **/*.log
 .env
+.idea
 compose.override.yaml

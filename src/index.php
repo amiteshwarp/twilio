@@ -1,7 +1,11 @@
 <?php
-// webhook.php - Twilio Webhook Handler & Forwarder
 
-// Load environment variables from .env file
+// Load all required class files
+require_once __DIR__ . '/handlers/ai-agent.php';
+require_once __DIR__ . '/handlers/twilio.php';
+require_once __DIR__ . '/handlers/webhook.php';
+
+// Load environment variables
 if (file_exists(__DIR__ . '/.env')) {
     $lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
     foreach ($lines as $line) {
@@ -10,32 +14,41 @@ if (file_exists(__DIR__ . '/.env')) {
     }
 }
 
-// Get incoming Twilio POST data
-$postData = file_get_contents("php://input");
-parse_str($postData, $parsedData);
+// Get request headers and URL path
+$headers = apache_request_headers();
+$requestPath = strtolower(trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'));
 
-// Add a custom key-value pair
-$parsedData['custom_key'] = 'custom_value';
+// Get request type from header or URL path
+$requestType = strtolower($headers['X-Request-Type'] ?? '');
+if (empty($requestType)) {
+    // Extract request type from URL path
+    $pathParts = explode('/', $requestPath);
+    $requestType = end($pathParts); // Get the last part of the URL
+}
 
-// Forward the modified data to another webhook
-$externalWebhookUrl = getenv('EXTERNAL_WEBHOOK_URL');
+// Route the request to appropriate handler
+switch ($requestType) {
+    case 'ai-agent':
+        $handler = new ChatwootAgent();
+        break;
+    
+    case 'twilio':
+        $handler = new TwilioWebhook();
+        break;
+    
+    case 'webhook':
+        $handler = new ChatwootWebhook();
+        break;
+    
+    default:
+        http_response_code(400);
+        error_log("Invalid request type: {$requestType}");
+        echo json_encode([
+            'success' => false,
+            'error' => 'Invalid request type'
+        ]);
+        exit;
+}
 
-// Log received and modified data
-file_put_contents("log.txt", print_r($parsedData, true), FILE_APPEND);
-file_put_contents("log.txt", print_r($externalWebhookUrl, true), FILE_APPEND);
-
-
-$ch = curl_init($externalWebhookUrl);
-
-curl_setopt($ch, CURLOPT_POST, 1);
-curl_setopt($ch, CURLOPT_POSTFIELDS, http_build_query($parsedData));
-curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
-
-$response = curl_exec($ch);
-curl_close($ch);
-
-// Log the response from the external webhook
-file_put_contents("log.txt", "\nResponse: " . $response . "\n", FILE_APPEND);
-
-// Respond to Twilio
-echo "Webhook processed and forwarded!";
+// Initialize the handler
+$handler->init();
