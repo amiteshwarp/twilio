@@ -18,6 +18,40 @@ if (file_exists(__DIR__ . '/.env')) {
 $headers = apache_request_headers();
 $requestPath = strtolower(trim(parse_url($_SERVER['REQUEST_URI'], PHP_URL_PATH), '/'));
 
+// Handle static assets
+if (strpos($requestPath, 'assets/') === 0) {
+    $assetPath = __DIR__ . '/' . $requestPath;
+    if (file_exists($assetPath)) {
+        $extension = pathinfo($assetPath, PATHINFO_EXTENSION);
+        $contentTypes = [
+            'css' => 'text/css',
+            'js' => 'application/javascript',
+            'html' => 'text/html',
+            'png' => 'image/png',
+            'jpg' => 'image/jpeg',
+            'jpeg' => 'image/jpeg',
+            'gif' => 'image/gif'
+        ];
+        
+        if (isset($contentTypes[$extension])) {
+            header('Content-Type: ' . $contentTypes[$extension]);
+            header('Cache-Control: public, max-age=31536000'); // Cache for 1 year
+            header('Expires: ' . gmdate('D, d M Y H:i:s \G\M\T', time() + 31536000));
+            readfile($assetPath);
+            exit;
+        }
+    }
+    http_response_code(404);
+    exit;
+}
+
+// Handle root URL with GET request
+if (empty($requestPath) && $_SERVER['REQUEST_METHOD'] === 'GET') {
+    header('Content-Type: text/html');
+    include __DIR__ . '/assets/index.html';
+    exit;
+}
+
 // Get request type from header or URL path
 $requestType = strtolower($headers['X-Request-Type'] ?? '');
 if (empty($requestType)) {
@@ -41,11 +75,13 @@ switch ($requestType) {
         break;
     
     default:
-        http_response_code(400);
-        error_log("Invalid request type: {$requestType}");
+        http_response_code(404);
+        header('Content-Type: application/json');
         echo json_encode([
             'success' => false,
-            'error' => 'Invalid request type'
+            'error' => 'Endpoint not found',
+            'message' => 'The requested endpoint does not exist',
+            'path' => $requestPath
         ]);
         exit;
 }
