@@ -22,7 +22,7 @@ class TwilioWebhook {
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->handleWebhook();
         } else {
-            $this->sendErrorResponse(405, 'Method not allowed');
+            $this->sendErrorResponse(405, 'Twilio:Method not allowed');
         }
     }
 

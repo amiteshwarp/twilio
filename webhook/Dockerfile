@@ -19,9 +19,12 @@ WORKDIR /var/www/html
 COPY <<-'EOF' /root/.config/ngrok/ngrok.yml
 version: 3
 tunnels:
-  http:
+  web:
+    addr: host.docker.internal:81
     proto: http
-    addr: 5000
+  api:
+    addr: localhost:5000
+    proto: http
 EOF
 
 # Put command to start php and ngrok

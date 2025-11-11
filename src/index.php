@@ -1,10 +1,5 @@
 <?php
 
-// Load all required class files
-require_once __DIR__ . '/handlers/ai-agent.php';
-require_once __DIR__ . '/handlers/twilio.php';
-require_once __DIR__ . '/handlers/webhook.php';
-
 // Load environment variables
 if (file_exists(__DIR__ . '/.env')) {
     $lines = file(__DIR__ . '/.env', FILE_IGNORE_NEW_LINES | FILE_SKIP_EMPTY_LINES);
@@ -62,16 +57,26 @@ if (empty($requestType)) {
 
 // Route the request to appropriate handler
 switch ($requestType) {
+    // Load all required class files
+
     case 'ai-agent':
+        require_once __DIR__ . '/handlers/ai-agent.php';
         $handler = new ChatwootAgent();
         break;
     
     case 'twilio':
+        require_once __DIR__ . '/handlers/twilio.php';
         $handler = new TwilioWebhook();
         break;
     
     case 'webhook':
+        require_once __DIR__ . '/handlers/webhook.php';
         $handler = new ChatwootWebhook();
+        break;
+    
+    case 'email':
+        require_once __DIR__ . '/handlers/email.php';
+        $handler = new SendGridEmailWebhook();
         break;
     
     default:

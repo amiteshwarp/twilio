@@ -129,3 +129,38 @@ Feel free to fork and submit pull requests to improve the project!
 This project is open-source and available under the **MIT License**.
 
 
+graph TD
+
+    636["User<br>External Actor"]
+    subgraph 622["External Systems"]
+        633["Chatwoot Platform<br>Chatwoot"]
+        634["Twilio Cloud APIs<br>Twilio"]
+        635["Application Database<br>SQL"]
+    end
+    subgraph 623["Webhook Service<br>Container Runtime"]
+        632["Webhook Receiver<br>Custom Runtime"]
+    end
+    subgraph 624["Phone Integration Service<br>Container Runtime"]
+        631["Phone Call Processor<br>Custom Runtime"]
+    end
+    subgraph 625["Main Application<br>PHP, JavaScript, HTML"]
+        626["Frontend Assets<br>Code Directory"]
+        627["Application Entry<br>PHP"]
+        628["API &amp; Request Handlers<br>PHP"]
+        %% Edges at this level (grouped by source)
+        627["Application Entry<br>PHP"] -->|serves / routes to| 626["Frontend Assets<br>Code Directory"]
+        627["Application Entry<br>PHP"] -->|routes to| 628["API &amp; Request Handlers<br>PHP"]
+    end
+    %% Edges at this level (grouped by source)
+    636["User<br>External Actor"] -->|interacts with| 627["Application Entry<br>PHP"]
+    632["Webhook Receiver<br>Custom Runtime"] -->|relays events to| 628["API &amp; Request Handlers<br>PHP"]
+    632["Webhook Receiver<br>Custom Runtime"] -->|logs to| 635["Application Database<br>SQL"]
+    633["Chatwoot Platform<br>Chatwoot"] -->|sends webhooks to| 628["API &amp; Request Handlers<br>PHP"]
+    628["API &amp; Request Handlers<br>PHP"] -->|delegates voice logic to| 631["Phone Call Processor<br>Custom Runtime"]
+    628["API &amp; Request Handlers<br>PHP"] -->|uses AI agent via| 633["Chatwoot Platform<br>Chatwoot"]
+    628["API &amp; Request Handlers<br>PHP"] -->|initiates calls/SMS via| 634["Twilio Cloud APIs<br>Twilio"]
+    628["API &amp; Request Handlers<br>PHP"] -->|persists data to| 635["Application Database<br>SQL"]
+    634["Twilio Cloud APIs<br>Twilio"] -->|sends event webhooks to| 632["Webhook Receiver<br>Custom Runtime"]
+    631["Phone Call Processor<br>Custom Runtime"] -->|interacts with| 634["Twilio Cloud APIs<br>Twilio"]
+    631["Phone Call Processor<br>Custom Runtime"] -->|accesses| 635["Application Database<br>SQL"]
+    626["Frontend Assets<br>Code Directory"] -->|integrates with| 633["Chatwoot Platform<br>Chatwoot"]

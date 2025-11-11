@@ -7,29 +7,29 @@ class ChatwootWebhook {
     private $commsKey;
 
     public function __construct() {
-        $this->init();
-        $this->requestBody = file_get_contents('php://input');
-        $this->data = json_decode($this->requestBody, true);
-        $this->headers = apache_request_headers();
-        $this->commsKey = getenv('CHATWOOT_COMMS_KEY');
+        // $this->commsKey = getenv('CHATWOOT_COMMS_KEY');
         
-        if (!$this->commsKey) {
-            throw new Exception('CHATWOOT_COMMS_KEY environment variable is not set');
-        }
+        // if (!$this->commsKey) {
+        //     throw new Exception('CHATWOOT_COMMS_KEY environment variable is not set');
+        // }
+        $this->init();
+        $this->headers = apache_request_headers();
     }
 
-    private function init() {
+    public function init() {
         // Initialize the webhook handler
         if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $this->handleWebhook();
         } else {
-            $this->sendErrorResponse(405, 'Method not allowed');
+            $this->sendErrorResponse(405, 'Webhook: Method not allowed');
         }
     }
 
     private function handleWebhook() {
         //$this->logHeaders();
-        
+        $this->requestBody = file_get_contents('php://input');
+        $this->data = json_decode($this->requestBody, true);
+
         if ($this->isValidPayload()) {
             $this->processEvent();
         } else {
@@ -45,10 +45,40 @@ class ChatwootWebhook {
         $eventName = $this->data['event'];
         error_log("Received Chatwoot event: " . $eventName);
         error_log(json_encode($this->data, JSON_PRETTY_PRINT));
+        //file_put_contents('/tmp/input.txt', json_encode($this->data, JSON_PRETTY_PRINT), FILE_APPEND);
+        $postData = json_encode($this->data);
+        $response = $this->makeApiRequest(getenv('EXTERNAL_WEBHOOK_URL'), $postData);
         
-        $this->sendSuccessResponse();
+        $httpStatus = $response['status'];
+        $responseBody = $response['body'];
+
+        error_log("Chatwoot API response ({$httpStatus}): {$responseBody}");
+
+        if ($httpStatus >= 200 && $httpStatus < 300) {
+            $this->sendSuccessResponse();
+        } else {
+            $this->sendErrorResponse(500, 'Failed to send message to Webhook, Error:' . $httpStatus);
+        }
     }
 
+    private function makeApiRequest($url, $postData) {
+        $ch = curl_init($url);
+        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "POST");
+        curl_setopt($ch, CURLOPT_POSTFIELDS, $postData);
+        curl_setopt($ch, CURLOPT_RETURNTRANSFER, true);
+        curl_setopt($ch, CURLOPT_HTTPHEADER, [
+            'Content-Type: application/json'
+        ]);
+
+        $response = curl_exec($ch);
+        $httpStatus = curl_getinfo($ch, CURLINFO_HTTP_CODE);
+        curl_close($ch);
+
+        return [
+            'status' => $httpStatus,
+            'body' => $response
+        ];
+    }
     private function logHeaders() {
         foreach ($this->headers as $header => $value) {
             error_log(json_encode([

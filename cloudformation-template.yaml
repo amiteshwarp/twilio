@@ -1,0 +1,126 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: 'Lambda Email Webhook Processor with SES Integration'
+
+Parameters:
+  WebhookUrl:
+    Type: String
+    Description: 'URL of the webhook endpoint to forward emails to'
+    Default: 'https://your-webhook-endpoint.com/email'
+  
+  WebhookApiKey:
+    Type: String
+    Description: 'API key for webhook authentication (optional)'
+    Default: ''
+    NoEcho: true
+  
+  FunctionName:
+    Type: String
+    Description: 'Name of the Lambda function'
+    Default: 'email-webhook-processor'
+
+Resources:
+  # IAM Role for Lambda
+  LambdaExecutionRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: !Sub '${FunctionName}-execution-role'
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+      Policies:
+        - PolicyName: WebhookInvocationPolicy
+          PolicyDocument:
+            Version: '2012-10-17'
+            Statement:
+              - Effect: Allow
+                Action:
+                  - logs:CreateLogGroup
+                  - logs:CreateLogStream
+                  - logs:PutLogEvents
+                Resource: '*'
+
+  # Lambda Function
+  EmailWebhookFunction:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: !Ref FunctionName
+      Runtime: python3.9
+      Handler: lambda_email_webhook.lambda_handler
+      Role: !GetAtt LambdaExecutionRole.Arn
+      Code:
+        ZipFile: |
+          import json
+          def lambda_handler(event, context):
+              return {
+                  'statusCode': 200,
+                  'body': json.dumps('Hello from Lambda!')
+              }
+      Environment:
+        Variables:
+          WEBHOOK_URL: !Ref WebhookUrl
+          WEBHOOK_API_KEY: !Ref WebhookApiKey
+      Timeout: 30
+      MemorySize: 256
+      ReservedConcurrencyLimit: 100
+
+  # Lambda Permission for SES
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref EmailWebhookFunction
+      StatementId: ses-trigger
+      Action: lambda:InvokeFunction
+      Principal: ses.amazonaws.com
+
+  # SES Receipt Rule Set (if not exists)
+  ReceiptRuleSet:
+    Type: AWS::SES::ReceiptRuleSet
+    Properties:
+      RuleSetName: !Sub '${FunctionName}-rule-set'
+
+  # SES Receipt Rule
+  ReceiptRule:
+    Type: AWS::SES::ReceiptRule
+    Properties:
+      RuleSetName: !Ref ReceiptRuleSet
+      Rule:
+        Name: !Sub '${FunctionName}-rule'
+        Enabled: true
+        Recipients:
+          - 'your-domain.com'  # Replace with your domain
+        Actions:
+          - LambdaAction:
+              FunctionArn: !GetAtt EmailWebhookFunction.Arn
+              InvocationType: Event
+
+  # CloudWatch Log Group
+  LogGroup:
+    Type: AWS::Logs::LogGroup
+    Properties:
+      LogGroupName: !Sub '/aws/lambda/${FunctionName}'
+      RetentionInDays: 14
+
+Outputs:
+  FunctionArn:
+    Description: 'ARN of the Lambda function'
+    Value: !GetAtt EmailWebhookFunction.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionArn'
+  
+  FunctionName:
+    Description: 'Name of the Lambda function'
+    Value: !Ref EmailWebhookFunction
+    Export:
+      Name: !Sub '${AWS::StackName}-FunctionName'
+  
+  RoleArn:
+    Description: 'ARN of the Lambda execution role'
+    Value: !GetAtt LambdaExecutionRole.Arn
+    Export:
+      Name: !Sub '${AWS::StackName}-RoleArn' 
